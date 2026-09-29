@@ -89,10 +89,35 @@
       border-radius: 7px;
       box-shadow: 0 0 10px rgba(255, 152, 0, 0.4);
     }
+    .header-titles {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      text-align: left;
+    }
     header h1 {
-      font-size: 20px;
+      font-size: 19px;
       font-weight: 700;
       color: var(--accent);
+      margin: 0;
+      line-height: 1.15;
+    }
+    .header-byline {
+      font-size: 11px;
+      color: var(--muted);
+      letter-spacing: 0.2px;
+      margin-top: 1px;
+    }
+    .header-byline a {
+      color: var(--accent);
+      text-decoration: none;
+      font-weight: 600;
+      transition: color 0.15s, opacity 0.15s;
+    }
+    .header-byline a:hover,
+    .header-byline a:focus {
+      text-decoration: underline;
+      opacity: 0.85;
     }
     .btn-fullscreen {
       position: absolute;
@@ -517,6 +542,9 @@
       header h1 {
         font-size: 17px;
       }
+      .header-byline {
+        font-size: 10px;
+      }
       .header-logo {
         width: 24px;
         height: 24px;
@@ -599,7 +627,10 @@
   <header>
     <div class="header-content">
       <img src="apple-touch-icon.png" alt="Logo" class="header-logo">
-      <h1>Surya Namaskar</h1>
+      <div class="header-titles">
+        <h1>Surya Namaskar</h1>
+        <div class="header-byline">by <a href="https://github.com/diwakar2k" target="_blank" rel="noopener noreferrer">Diwakar Sharma</a></div>
+      </div>
     </div>
     <!-- Fullscreen Mode Toggle Button -->
     <button id="btn-fullscreen" class="btn-fullscreen" onclick="toggleFullscreen()" title="Toggle Mat Fullscreen" aria-label="Toggle Fullscreen">
