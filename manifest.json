@@ -1,6 +1,8 @@
 {
   "name": "Surya Namaskar",
   "short_name": "Surya",
+  "description": "Surya Namaskar (Sun Salutation) Timer PWA by Diwakar Sharma",
+  "author": "Diwakar Sharma",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",

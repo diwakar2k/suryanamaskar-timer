@@ -2,8 +2,11 @@
 
 An elegant, distraction-free Progressive Web App (PWA) timer designed specifically for practicing Surya Namaskar (Sun Salutation) on the yoga mat.
 
+**Created by [Diwakar Sharma](https://github.com/diwakar2k)**
+
 🌐 **Live Deployed App:** [https://diwakar2k.github.io/suryanamaskar-timer/](https://diwakar2k.github.io/suryanamaskar-timer/)  
-📦 **GitHub Repository:** [https://github.com/diwakar2k/suryanamaskar-timer](https://github.com/diwakar2k/suryanamaskar-timer)
+📦 **GitHub Repository:** [https://github.com/diwakar2k/suryanamaskar-timer](https://github.com/diwakar2k/suryanamaskar-timer)  
+👤 **Author Profile:** [https://github.com/diwakar2k](https://github.com/diwakar2k)
 
 ---
 
@@ -136,6 +139,14 @@ Open `http://localhost:5500` in your browser.
 
 ---
 
+## 👤 Author & Attribution
+
+**Diwakar Sharma**
+* GitHub: [@diwakar2k](https://github.com/diwakar2k)
+* Project Repository: [suryanamaskar-timer](https://github.com/diwakar2k/suryanamaskar-timer)
+
+---
+
 ## 📜 License
 
-MIT License. Designed with reverence for traditional Hatha Yoga practice.
+MIT License © Diwakar Sharma. Designed with reverence for traditional Hatha Yoga practice.
