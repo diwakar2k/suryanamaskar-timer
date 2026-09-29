@@ -2,6 +2,59 @@
 
 An elegant, distraction-free Progressive Web App (PWA) timer designed specifically for practicing Surya Namaskar (Sun Salutation) on the yoga mat.
 
+🌐 **Live Deployed App:** [https://diwakar2k.github.io/suryanamaskar-timer/](https://diwakar2k.github.io/suryanamaskar-timer/)  
+📦 **GitHub Repository:** [https://github.com/diwakar2k/suryanamaskar-timer](https://github.com/diwakar2k/suryanamaskar-timer)
+
+---
+
+## 📲 How to Install on Your Phone (iOS & Android)
+
+This app is built as a **Progressive Web App (PWA)**. You do **not** need to download it from the Apple App Store or Google Play Store. When added to your home screen, it:
+* Launches in **fullscreen standalone mode** (no browser address bar or bottom toolbars).
+* Displays a high-resolution custom icon on your home screen and app drawer.
+* Operates **100% offline** (all audio, images, and timer logic are pre-cached locally on your device).
+
+---
+
+### 🍎 iPhone & iPad (iOS)
+
+> **Important:** You must use **Apple Safari** for installation. Apple does not allow third-party browsers (like Chrome or Firefox on iOS) to add PWAs to the home screen.
+
+1. Open **Safari** on your iPhone or iPad.
+2. Navigate to the live URL:  
+   👉 [https://diwakar2k.github.io/suryanamaskar-timer/](https://diwakar2k.github.io/suryanamaskar-timer/)
+3. Tap the **Share** button located on the bottom toolbar (the square box with an arrow pointing upward: `⎋` / `⤤`).
+4. Scroll down the share menu and tap **Add to Home Screen** (`➕`).
+5. (Optional) Edit the title if you wish (defaults to **Surya**), then tap **Add** in the top-right corner.
+6. The **Surya Namaskar** icon will now appear on your home screen. Tap it to launch the standalone app!
+
+---
+
+### 🤖 Android (Google Chrome & Other Browsers)
+
+1. Open **Google Chrome** (or Samsung Internet / Edge) on your Android device.
+2. Navigate to the live URL:  
+   👉 [https://diwakar2k.github.io/suryanamaskar-timer/](https://diwakar2k.github.io/suryanamaskar-timer/)
+3. **Automatic Prompt:** A banner saying **"Add Surya Namaskar to Home screen"** or **"Install app"** will typically appear at the bottom. Tap it.
+4. **Manual Installation:** If the banner does not appear automatically:
+   * Tap the **three-dot menu (`⋮`)** in the upper-right corner of Chrome.
+   * Select **"Install app"** or **"Add to Home screen"**.
+   * Tap **Install** to confirm.
+5. The app icon will be placed on your home screen and in your Android app drawer.
+
+---
+
+### ✈️ Offline Practice Mode
+Once loaded for the first time, all asana diagrams, synthesized Tibetan chimes, and spoken voice clips are permanently cached in your phone's local storage via Service Worker (`sw.js`). You can practice outdoors, in airplane mode, or with no internet connection without disruption.
+
+---
+
+### 🎧 Using with Spotify / Background Music
+1. Start your music or podcast playlist in **Spotify**, **Apple Music**, or **YouTube Music**.
+2. Open the **Surya Namaskar** app.
+3. Select either **Chimes** or **Voice** mode.
+4. Hit **Play (▶)**. The audio cues are configured as ambient Web Audio (`navigator.audioSession.type = 'ambient'`), so they mix smoothly over your music at full fidelity without pausing or ducking your background audio.
+
 ---
 
 ## 🌟 Key Features
@@ -13,11 +66,11 @@ An elegant, distraction-free Progressive Web App (PWA) timer designed specifical
 
 * **🎵 Spotify & Background Audio Coexistence:**
   * Built using the **Web Audio API** (`AudioContext`) with ambient audio session configuration (`navigator.audioSession.type = 'ambient'`).
-  * Both **Chimes (Tibetan Bell)** and **Voice (Spoken count)** mix seamlessly on top of background music (Spotify, Apple Music, YouTube Music) without ducking, pausing, or interrupting playback.
+  * Both **Chimes (Tibetan Bell)** and **Voice (Spoken count)** mix seamlessly on top of background music without ducking, pausing, or claiming exclusive audio focus.
 
 * **📱 Mat-Side Landscape & Fullscreen Mode:**
   * **Landscape Mode:** When placed horizontally on the floor beside your yoga mat, the app automatically switches to an ergonomic two-column layout (dial on the left, timer, pose info, and controls on the right).
-  * **Fullscreen Toggle (`⛶`):** Eliminates browser chrome for a distraction-free experience.
+  * **Fullscreen Toggle (`⛶`):** Eliminates browser chrome for an immersive, distraction-free view.
 
 * **⏱️ Web Worker Precision Timing:**
   * Driven by high-resolution `performance.now()`.
@@ -47,7 +100,7 @@ suryanamaskar-timer/
 ├── manifest.json           # Web App Manifest for PWA installation
 ├── sw.js                   # Service worker for offline caching & asset rotation
 ├── .gitignore              # Git ignore rules for clean version control
-├── README.md               # Documentation and usage guide
+├── README.md               # Documentation and installation guide
 ├── audio/                  # Preloaded voice count & cue audio files
 │   ├── 1.wav ... 12.wav    # Spoken numbers 1 to 12
 │   ├── start.wav           # "Start!" cue
@@ -65,7 +118,7 @@ suryanamaskar-timer/
 
 ## 🚀 Running Locally
 
-You can run the app with any standard HTTP server:
+You can also run the app locally with any standard HTTP server:
 
 ### Option 1: Python
 ```bash
@@ -76,17 +129,10 @@ Open `http://localhost:5500` in your browser.
 ### Option 2: VS Code Live Server
 1. Open the project folder in VS Code.
 2. Click **Go Live** on the bottom status bar (or right-click `index.html` → *Open with Live Server*).
-3. If viewing on a mobile phone:
+3. If viewing on a mobile phone on the same Wi-Fi:
    * Go to the **Ports** tab in VS Code.
    * Right-click the forwarded port (`5500`) and select **Port Visibility → Public**.
    * Open the provided HTTPS address on your mobile device.
-
----
-
-## 📲 Installing on Mobile (PWA)
-
-* **iOS (Safari):** Open the site, tap the **Share** button (`⎋`), and select **Add to Home Screen**.
-* **Android (Chrome):** Open the site, tap the **Menu** (`⋮`), and select **Install App** (or **Add to Home screen**).
 
 ---
 
