@@ -772,6 +772,13 @@
       navigator.serviceWorker.register('sw.js');
     }
 
+    // Set ambient audio session immediately on script load so iOS/Android mix with background audio (Spotify, etc.)
+    if ('audioSession' in navigator) {
+      try {
+        navigator.audioSession.type = 'ambient';
+      } catch (e) {}
+    }
+
     /* -------------------------------------------------------------------------
        WEB AUDIO ENGINE
        Mixes 100% harmoniously with Spotify / Apple Music by declaring an ambient
@@ -781,21 +788,26 @@
 
     /**
      * Initializes or resumes the Web Audio context with an ambient audio session.
-     * Declaring navigator.audioSession.type = 'ambient' prevents Mobile Safari
-     * and Android Chrome from interrupting or pausing background music.
+     * Declaring navigator.audioSession.type = 'ambient' BEFORE creating AudioContext
+     * prevents Mobile Safari and Android from interrupting or pausing background music.
      */
     function initAudio() {
+      if ('audioSession' in navigator) {
+        try {
+          navigator.audioSession.type = 'ambient';
+        } catch (e) {}
+      }
       if (!audioCtx) {
         const AudioContextClass = window.AudioContext || window.webkitAudioContext;
         if (AudioContextClass) audioCtx = new AudioContextClass();
       }
-      if (audioCtx && audioCtx.state === 'suspended') {
-        audioCtx.resume();
-      }
       if ('audioSession' in navigator) {
         try {
           navigator.audioSession.type = 'ambient';
-        } catch(e) {}
+        } catch (e) {}
+      }
+      if (audioCtx && audioCtx.state === 'suspended') {
+        audioCtx.resume().catch(() => {});
       }
     }
 
@@ -806,24 +818,46 @@
        ------------------------------------------------------------------------- */
     const AUDIO_CLIPS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', 'start', 'inhale', 'exhale', 'hold'];
     const audioBuffers = {};
+    const rawAudioBuffers = {};
     let isPreloadingAudio = false;
+
+    /**
+     * Eagerly pre-fetches raw audio ArrayBuffers in the background on page load
+     * so voice countdown and pose cues are instantly ready without delay.
+     */
+    function prefetchAudioFiles() {
+      AUDIO_CLIPS.forEach((clip) => {
+        if (rawAudioBuffers[clip]) return;
+        fetch(`./audio/${clip}.wav`)
+          .then((res) => {
+            if (res.ok) return res.arrayBuffer();
+          })
+          .then((ab) => {
+            if (ab) rawAudioBuffers[clip] = ab;
+          })
+          .catch(() => {});
+      });
+    }
 
     /**
      * Preloads and decodes all voice WAV clips into AudioBuffers in memory.
      * @returns {Promise<void>}
      */
     async function preloadVoiceAudio() {
-      if (!audioCtx) initAudio();
+      initAudio();
       if (!audioCtx || isPreloadingAudio) return;
       isPreloadingAudio = true;
       try {
         await Promise.all(AUDIO_CLIPS.map(async (clip) => {
           if (audioBuffers[clip]) return;
           try {
-            const res = await fetch(`audio/${clip}.wav`);
-            if (res.ok) {
-              const ab = await res.arrayBuffer();
-              audioBuffers[clip] = await audioCtx.decodeAudioData(ab);
+            let ab = rawAudioBuffers[clip];
+            if (!ab) {
+              const res = await fetch(`./audio/${clip}.wav`);
+              if (res.ok) ab = await res.arrayBuffer();
+            }
+            if (ab && audioCtx) {
+              audioBuffers[clip] = await audioCtx.decodeAudioData(ab.slice(0));
             }
           } catch (e) {}
         }));
@@ -835,11 +869,12 @@
 
     /**
      * Plays a pre-decoded voice clip buffer through the ambient Web Audio pipeline.
-     * Falls back to SpeechSynthesis if buffer is missing.
+     * If buffer is still pending, falls back to a gentle synthesized wood tick
+     * through the SAME ambient context (NEVER uses SpeechSynthesis, which pauses Spotify).
      * @param {string} clipName - The key name of the clip (e.g. '1', 'start').
      */
     function playVoiceClip(clipName) {
-      if (!audioCtx) initAudio();
+      initAudio();
       if (!audioCtx) return;
       if (audioCtx.state === 'suspended') {
         audioCtx.resume().catch(() => {});
@@ -851,7 +886,13 @@
         src.connect(audioCtx.destination);
         src.start(0);
       } else {
-        speak(clipName);
+        // Fallback to non-interrupting synthesized tick through ambient AudioContext
+        playWoodTick();
+        if (rawAudioBuffers[clipName] && audioCtx) {
+          audioCtx.decodeAudioData(rawAudioBuffers[clipName].slice(0)).then((decoded) => {
+            audioBuffers[clipName] = decoded;
+          }).catch(() => {});
+        }
       }
     }
 
@@ -935,8 +976,18 @@
       }
     }
 
-    document.addEventListener('fullscreenchange', updateFullscreenIcons);
-    document.addEventListener('webkitfullscreenchange', updateFullscreenIcons);
+    document.addEventListener('fullscreenchange', () => {
+      updateFullscreenIcons();
+      if (shouldKeepAwake && document.visibilityState === 'visible') {
+        setTimeout(requestWakeLock, 300);
+      }
+    });
+    document.addEventListener('webkitfullscreenchange', () => {
+      updateFullscreenIcons();
+      if (shouldKeepAwake && document.visibilityState === 'visible') {
+        setTimeout(requestWakeLock, 300);
+      }
+    });
 
     /* -------------------------------------------------------------------------
        CELEBRATION SOUNDS & SESSION SUMMARY MODAL
@@ -1249,19 +1300,6 @@
        ------------------------------------------------------------------------- */
 
     /**
-     * Fallback browser SpeechSynthesis announcer.
-     * @param {string|number} text - Text to speak.
-     * @param {number} [rate=1.3] - Speech playback speed multiplier.
-     */
-    function speak(text, rate = 1.3) {
-      if (!('speechSynthesis' in window)) return;
-      window.speechSynthesis.cancel();
-      const u = new SpeechSynthesisUtterance(text.toString());
-      u.rate = Math.max(1.15, Math.min(2.35, rate));
-      window.speechSynthesis.speak(u);
-    }
-
-    /**
      * Triggers the appropriate auditory cue upon entering a new pose.
      * In Chimes mode: Distinct pitch for round start (E5), transitions (A4), and completion (528Hz).
      * In Voice mode: Plays preloaded voice WAV buffers (mixes over Spotify).
@@ -1297,26 +1335,42 @@
 
     /* -------------------------------------------------------------------------
        SCREEN WAKE LOCK (Prevents display sleep during practice)
+       Resilient implementation across orientation changes, fullscreen, and backgrounding.
        ------------------------------------------------------------------------- */
+    let shouldKeepAwake = false;
+    let wakeLockRequestInProgress = false;
 
     /**
-     * Requests Screen WakeLock from the browser.
+     * Requests Screen WakeLock from the browser with resilience across
+     * orientation changes, fullscreen transitions, and background visibility changes.
      */
     async function requestWakeLock() {
+      if (!('wakeLock' in navigator)) return;
+      if (wakeLock && !wakeLock.released) return;
+      if (wakeLockRequestInProgress) return;
+
+      wakeLockRequestInProgress = true;
       try {
-        if ('wakeLock' in navigator) {
-          wakeLock = await navigator.wakeLock.request('screen');
-          wakeLock.addEventListener('release', () => {
-            wakeLock = null;
-          });
-        }
-      } catch (err) {}
+        wakeLock = await navigator.wakeLock.request('screen');
+        wakeLock.addEventListener('release', () => {
+          wakeLock = null;
+          // Re-acquire if workout session is still active and page is visible
+          if (shouldKeepAwake && document.visibilityState === 'visible') {
+            setTimeout(requestWakeLock, 300);
+          }
+        });
+      } catch (err) {
+        // Silently fails on low battery/power saver; watchdog will retry when possible
+      } finally {
+        wakeLockRequestInProgress = false;
+      }
     }
 
     /**
      * Releases active Screen WakeLock.
      */
     function releaseWakeLock() {
+      shouldKeepAwake = false;
       if (wakeLock) {
         wakeLock.release().catch(() => {});
         wakeLock = null;
@@ -1328,12 +1382,29 @@
      */
     document.addEventListener('visibilitychange', async () => {
       if (document.visibilityState === 'visible') {
-        if (isRunning) {
+        if (shouldKeepAwake) {
           await requestWakeLock();
-          if (audioCtx && audioCtx.state === 'suspended') {
-            audioCtx.resume().catch(() => {});
-          }
         }
+        if (audioCtx && audioCtx.state === 'suspended') {
+          audioCtx.resume().catch(() => {});
+        }
+      }
+    });
+
+    /**
+     * Re-acquires WakeLock when phone is rotated to landscape or flipped on the yoga mat.
+     */
+    window.addEventListener('orientationchange', () => {
+      setTimeout(() => {
+        if (shouldKeepAwake && document.visibilityState === 'visible') {
+          requestWakeLock();
+        }
+      }, 300);
+    });
+
+    window.addEventListener('resize', () => {
+      if (shouldKeepAwake && (!wakeLock || wakeLock.released) && document.visibilityState === 'visible') {
+        requestWakeLock();
       }
     });
 
@@ -1405,6 +1476,11 @@
       const remRounds = Math.max(0, totalRounds - currentRound + 1);
       metaRounds.innerHTML = `Round ${currentRound} / ${totalRounds} • <span class="accent-text">${side}</span> (${remRounds} left)`;
       metaTime.textContent = `${formatMMSS(elapsed)} / ${formatMMSS(remSec)} / ${formatMMSS(totalSec)}`;
+
+      // Periodic watchdog to keep screen awake throughout practice
+      if (shouldKeepAwake && (!wakeLock || wakeLock.released) && document.visibilityState === 'visible') {
+        requestWakeLock();
+      }
     }
 
     /**
@@ -1464,6 +1540,7 @@
         clearInterval(countdownTimer);
         countdownOverlay.style.display = 'none';
         isCountingDown = false;
+        releaseWakeLock();
         handleReset();
         return;
       }
@@ -1474,9 +1551,9 @@
         cancelAnimationFrame(animFrame);
         stopTimerWorker();
         if (backupTimer) { clearInterval(backupTimer); backupTimer = null; }
-        if ('speechSynthesis' in window) window.speechSynthesis.cancel();
         releaseWakeLock();
       } else {
+        shouldKeepAwake = true;
         requestWakeLock();
         btnMain.textContent = "❚❚";
 
@@ -1495,6 +1572,7 @@
             startTimerWorker();
             if (backupTimer) clearInterval(backupTimer);
             backupTimer = setInterval(updateTimerState, 200);
+            requestWakeLock();
           });
         } else {
           sessionStartTime = performance.now() - totalElapsed * 1000;
@@ -1503,6 +1581,7 @@
           startTimerWorker();
           if (backupTimer) clearInterval(backupTimer);
           backupTimer = setInterval(updateTimerState, 200);
+          requestWakeLock();
         }
       }
     }
@@ -1518,7 +1597,6 @@
       cancelAnimationFrame(animFrame);
       stopTimerWorker();
       if (backupTimer) { clearInterval(backupTimer); backupTimer = null; }
-      if ('speechSynthesis' in window) window.speechSynthesis.cancel();
       releaseWakeLock();
 
       currentRound = 1;
@@ -1665,6 +1743,7 @@
     loadSavedPreferences();
     initDial();
     buildTimeline();
+    prefetchAudioFiles();
 
     /**
      * Unlocks Web Audio and preloads voice clips on the user's first tap/click.
