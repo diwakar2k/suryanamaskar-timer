@@ -4,11 +4,11 @@
  * Provides full offline capabilities, pre-caches audio assets, icons, and pose diagrams,
  * and handles WebKit/iOS Safari standalone WebClip navigation edge-cases.
  *
- * @version 16.0.0
+ * @version 17.0.0
  */
 
 // Cache version identifier — bump this whenever assets or code are updated to trigger cache rotation.
-const CACHE_NAME = 'surya-namaskar-v16';
+const CACHE_NAME = 'surya-namaskar-v17';
 
 // Complete manifest of static assets to pre-cache on service worker installation.
 const ASSETS = [

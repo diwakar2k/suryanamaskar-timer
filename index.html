@@ -668,7 +668,7 @@
       <div class="header-titles">
         <h1>Surya Namaskar</h1>
         <div class="header-byline">by <a href="https://github.com/diwakar2k" target="_blank" rel="noopener noreferrer">Diwakar Sharma</a></div>
-        <div class="header-version">v14.0 • 21-Oct-2026 08:45 IST</div>
+        <div class="header-version">v15.0 • 21-Oct-2026 10:15 IST</div>
       </div>
     </div>
     <!-- Fullscreen Mode Toggle Button -->
@@ -713,7 +713,7 @@
     <div class="pace-indicator" id="pace-preview"></div>
     <div class="app-attribution">
       Created by <a href="https://github.com/diwakar2k" target="_blank" rel="noopener noreferrer">Diwakar Sharma</a>
-      <div class="app-version-detail">Version 14.0 • Released: 21-Oct-2026, 08:45 AM IST</div>
+      <div class="app-version-detail">Version 15.0 • Released: 21-Oct-2026, 10:15 AM IST</div>
     </div>
   </div>
 
@@ -800,7 +800,7 @@
       <button class="modal-btn" onclick="closeSummaryModal()">Complete Practice</button>
       <div class="modal-footer-attribution">
         Created by <a href="https://github.com/diwakar2k" target="_blank" rel="noopener noreferrer">Diwakar Sharma</a>
-        <div class="app-version-detail">Version 14.0 • Released: 21-Oct-2026, 08:45 AM IST</div>
+        <div class="app-version-detail">Version 15.0 • Released: 21-Oct-2026, 10:15 AM IST</div>
       </div>
     </div>
   </div>
@@ -825,41 +825,43 @@
       });
     }
 
-    // Set ambient audio session immediately on script load so iOS/Android mix with background audio (Spotify, etc.)
-    if ('audioSession' in navigator) {
-      try {
-        navigator.audioSession.type = 'ambient';
-      } catch (e) {}
-    }
-
     /* -------------------------------------------------------------------------
        WEB AUDIO ENGINE
-       Mixes 100% harmoniously with Spotify / Apple Music by declaring an ambient
-       audio session category and rendering Tibetan bells via additive synthesis.
+       Mixes 100% harmoniously with Spotify / Apple Music by utilizing Web Audio API
+       and declaring a transient audio session category. Tibetan bells and metronome
+       cues render via additive synthesis with high dynamic range so they pierce
+       clearly over background music without interrupting or ducking the OS audio.
        ------------------------------------------------------------------------- */
     let audioCtx = null;
 
     /**
-     * Initializes or resumes the Web Audio context with an ambient audio session.
-     * Declaring navigator.audioSession.type = 'ambient' BEFORE creating AudioContext
-     * prevents Mobile Safari and Android from interrupting or pausing background music.
+     * Initializes or resumes the Web Audio context.
+     * Uses 'transient' audio session category where supported so timer cues
+     * mix cleanly over background music (Spotify) without muting or interrupting it.
      */
     function initAudio() {
-      if ('audioSession' in navigator) {
-        try {
-          navigator.audioSession.type = 'ambient';
-        } catch (e) {}
-      }
       if (!audioCtx) {
         const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-        if (AudioContextClass) audioCtx = new AudioContextClass();
+        if (AudioContextClass) {
+          audioCtx = new AudioContextClass();
+          audioCtx.onstatechange = () => {
+            if (isRunning && (audioCtx.state === 'suspended' || audioCtx.state === 'interrupted')) {
+              audioCtx.resume().catch(() => {});
+            }
+          };
+        }
       }
       if ('audioSession' in navigator) {
         try {
-          navigator.audioSession.type = 'ambient';
-        } catch (e) {}
+          // 'transient' is designated for alerts/chimes to play concurrently over background music
+          navigator.audioSession.type = 'transient';
+        } catch (e) {
+          try {
+            navigator.audioSession.type = 'ambient';
+          } catch (e2) {}
+        }
       }
-      if (audioCtx && audioCtx.state === 'suspended') {
+      if (audioCtx && (audioCtx.state === 'suspended' || audioCtx.state === 'interrupted')) {
         audioCtx.resume().catch(() => {});
       }
     }
@@ -921,25 +923,29 @@
     }
 
     /**
-     * Plays a pre-decoded voice clip buffer through the ambient Web Audio pipeline.
-     * If buffer is still pending, falls back to a gentle synthesized wood tick
-     * through the SAME ambient context (NEVER uses SpeechSynthesis, which pauses Spotify).
+     * Plays a pre-decoded voice clip buffer through the Web Audio pipeline.
+     * Routes through a GainNode to ensure loud, clear audibility over background Spotify music.
+     * If buffer is still pending, falls back to a crisp synthesized wood tick.
      * @param {string} clipName - The key name of the clip (e.g. '1', 'start').
      */
     function playVoiceClip(clipName) {
       initAudio();
       if (!audioCtx) return;
-      if (audioCtx.state === 'suspended') {
+      if (audioCtx.state === 'suspended' || audioCtx.state === 'interrupted') {
         audioCtx.resume().catch(() => {});
       }
       const buf = audioBuffers[clipName];
       if (buf) {
         const src = audioCtx.createBufferSource();
         src.buffer = buf;
-        src.connect(audioCtx.destination);
+        // Boost voice playback gain to 1.35 (+2.6 dB) to ensure cues are distinctly audible over Spotify
+        const gainNode = audioCtx.createGain();
+        gainNode.gain.setValueAtTime(1.35, audioCtx.currentTime);
+        src.connect(gainNode);
+        gainNode.connect(audioCtx.destination);
         src.start(0);
       } else {
-        // Fallback to non-interrupting synthesized tick through ambient AudioContext
+        // Fallback to non-interrupting synthesized tick through AudioContext
         playWoodTick();
         if (rawAudioBuffers[clipName] && audioCtx) {
           audioCtx.decodeAudioData(rawAudioBuffers[clipName].slice(0)).then((decoded) => {
@@ -1092,59 +1098,87 @@
        ------------------------------------------------------------------------- */
 
     /**
-     * Synthesizes a Tibetan bell chime using additive harmonic synthesis.
-     * Uses a pure fundamental sine wave combined with an inharmonic metallic overtone (2.756x).
+     * Synthesizes a resonant Tibetan singing bowl chime using additive harmonic synthesis.
+     * Combines fundamental sine tone, metallic overtone (2.756x), and shimmer harmonic (5.404x).
+     * Tuned with high master gain so bell cues pierce clearly through background Spotify music.
      * @param {number} [freq=528] - Fundamental frequency in Hz (default 528 Hz - Solfeggio frequency).
      * @param {number} [duration=1.4] - Decay duration in seconds.
      */
     function playChime(freq = 528, duration = 1.4) {
+      initAudio();
       if (!audioCtx) return;
+      if (audioCtx.state === 'suspended' || audioCtx.state === 'interrupted') {
+        audioCtx.resume().catch(() => {});
+      }
       const now = audioCtx.currentTime;
 
-      // Fundamental tone
+      // Master output bus for the chime
+      const masterGain = audioCtx.createGain();
+      masterGain.gain.setValueAtTime(0.9, now);
+      masterGain.connect(audioCtx.destination);
+
+      // Fundamental tone (pierces clearly over background music)
       const osc1 = audioCtx.createOscillator();
       const gain1 = audioCtx.createGain();
       osc1.type = 'sine';
       osc1.frequency.setValueAtTime(freq, now);
-      gain1.gain.setValueAtTime(0.35, now);
+      gain1.gain.setValueAtTime(0.85, now);
       gain1.gain.exponentialRampToValueAtTime(0.0001, now + duration);
 
-      // Metallic overtone (2.756x fundamental)
+      // Metallic overtone (2.756x fundamental - singing bowl harmonic)
       const osc2 = audioCtx.createOscillator();
       const gain2 = audioCtx.createGain();
       osc2.type = 'sine';
       osc2.frequency.setValueAtTime(freq * 2.756, now);
-      gain2.gain.setValueAtTime(0.12, now);
-      gain2.gain.exponentialRampToValueAtTime(0.0001, now + duration * 0.6);
+      gain2.gain.setValueAtTime(0.35, now);
+      gain2.gain.exponentialRampToValueAtTime(0.0001, now + duration * 0.7);
+
+      // High shimmer harmonic (5.404x fundamental)
+      const osc3 = audioCtx.createOscillator();
+      const gain3 = audioCtx.createGain();
+      osc3.type = 'sine';
+      osc3.frequency.setValueAtTime(freq * 5.404, now);
+      gain3.gain.setValueAtTime(0.18, now);
+      gain3.gain.exponentialRampToValueAtTime(0.0001, now + duration * 0.4);
 
       osc1.connect(gain1);
-      gain1.connect(audioCtx.destination);
+      gain1.connect(masterGain);
       osc2.connect(gain2);
-      gain2.connect(audioCtx.destination);
+      gain2.connect(masterGain);
+      osc3.connect(gain3);
+      gain3.connect(masterGain);
 
       osc1.start(now);
       osc2.start(now);
+      osc3.start(now);
       osc1.stop(now + duration);
       osc2.stop(now + duration);
+      osc3.stop(now + duration);
     }
 
     /**
-     * Synthesizes a soft woodblock tick for the 10-second readiness countdown.
+     * Synthesizes a punchy percussive woodblock tick for countdown readiness.
+     * Uses a fast pitch-dropped triangle wave for a sharp acoustic click that cuts through music.
      */
     function playWoodTick() {
+      initAudio();
       if (!audioCtx) return;
+      if (audioCtx.state === 'suspended' || audioCtx.state === 'interrupted') {
+        audioCtx.resume().catch(() => {});
+      }
       const now = audioCtx.currentTime;
       const osc = audioCtx.createOscillator();
       const gain = audioCtx.createGain();
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(750, now);
-      osc.frequency.exponentialRampToValueAtTime(300, now + 0.04);
-      gain.gain.setValueAtTime(0.2, now);
-      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.04);
+      // Triangle wave creates crisp, percussive metronome click that pierces through music
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(950, now);
+      osc.frequency.exponentialRampToValueAtTime(250, now + 0.08);
+      gain.gain.setValueAtTime(0.85, now);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.08);
       osc.connect(gain);
       gain.connect(audioCtx.destination);
       osc.start(now);
-      osc.stop(now + 0.04);
+      osc.stop(now + 0.08);
     }
 
     /* -------------------------------------------------------------------------
@@ -1470,7 +1504,7 @@
         if (shouldKeepAwake) {
           await requestWakeLock();
         }
-        if (audioCtx && audioCtx.state === 'suspended') {
+        if (audioCtx && (audioCtx.state === 'suspended' || audioCtx.state === 'interrupted')) {
           audioCtx.resume().catch(() => {});
         }
       }
@@ -1582,6 +1616,10 @@
      * @param {Function} cb - Callback invoked once countdown completes.
      */
     function startCountdown(cb) {
+      initAudio();
+      if (audioCtx && (audioCtx.state === 'suspended' || audioCtx.state === 'interrupted')) {
+        audioCtx.resume().catch(() => {});
+      }
       isCountingDown = true;
       let count = 10;
       countdownOverlay.style.display = 'flex';
@@ -1834,16 +1872,32 @@
     prefetchAudioFiles();
 
     /**
-     * Unlocks Web Audio and preloads voice clips on the user's first tap/click.
+     * Unlocks Web Audio hardware output and preloads voice clips on the user's first tap/click.
+     * Playing a 1-sample silent buffer directly satisfies WebKit / iOS Safari's strict
+     * autoplay unlock policy and ensures the audio routing pipeline is active.
      */
     const unlockAndPreload = () => {
       initAudio();
+      if (audioCtx) {
+        if (audioCtx.state === 'suspended' || audioCtx.state === 'interrupted') {
+          audioCtx.resume().catch(() => {});
+        }
+        try {
+          const silentBuf = audioCtx.createBuffer(1, 1, 22050);
+          const src = audioCtx.createBufferSource();
+          src.buffer = silentBuf;
+          src.connect(audioCtx.destination);
+          src.start(0);
+        } catch (e) {}
+      }
       preloadVoiceAudio();
-      document.removeEventListener('pointerdown', unlockAndPreload);
-      document.removeEventListener('keydown', unlockAndPreload);
+      ['touchstart', 'touchend', 'click', 'pointerdown', 'keydown'].forEach((evt) => {
+        document.removeEventListener(evt, unlockAndPreload);
+      });
     };
-    document.addEventListener('pointerdown', unlockAndPreload, { passive: true });
-    document.addEventListener('keydown', unlockAndPreload, { passive: true });
+    ['touchstart', 'touchend', 'click', 'pointerdown', 'keydown'].forEach((evt) => {
+      document.addEventListener(evt, unlockAndPreload, { passive: true });
+    });
   </script>
 </body>
 </html>
