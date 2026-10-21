@@ -372,6 +372,26 @@
       color: var(--accent);
       border: 1px solid var(--border);
     }
+    .wakelock-badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 3px 9px;
+      border-radius: 16px;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.2px;
+      transition: all 0.25s ease;
+    }
+    .wakelock-badge.awake {
+      background: rgba(76, 175, 80, 0.16);
+      color: #81c784;
+      border: 1px solid rgba(76, 175, 80, 0.4);
+    }
+    .wakelock-badge.warning {
+      background: rgba(255, 152, 0, 0.16);
+      color: #ffb74d;
+      border: 1px solid rgba(255, 152, 0, 0.4);
+    }
 
     /* Live On-the-Fly Adjustment Controls */
     .live-controls {
@@ -706,6 +726,7 @@
         <div class="cue-row">
           <span id="breath-badge" class="breath-badge breath-exhale">Exhale ⬇</span>
           <span id="leg-badge" class="leg-badge" style="display: none;">Right Leg Back</span>
+          <span id="wakelock-badge" class="wakelock-badge awake" style="display: none;">🔆 Screen On</span>
         </div>
 
         <div class="live-controls">
@@ -1151,6 +1172,7 @@
     const poseTitle = document.getElementById('pose-title');
     const breathBadge = document.getElementById('breath-badge');
     const legBadge = document.getElementById('leg-badge');
+    const wakelockBadge = document.getElementById('wakelock-badge');
     const metaRounds = document.getElementById('meta-rounds');
     const metaTime = document.getElementById('meta-time');
     const liveRoundsVal = document.getElementById('live-rounds-val');
@@ -1341,26 +1363,56 @@
     let wakeLockRequestInProgress = false;
 
     /**
+     * Updates the on-screen badge so the user has immediate visual confirmation
+     * whether their phone operating system is keeping the screen awake.
+     */
+    function updateWakeLockUI() {
+      if (!wakelockBadge) return;
+      if (shouldKeepAwake) {
+        wakelockBadge.style.display = 'inline-flex';
+        if (wakeLock && !wakeLock.released) {
+          wakelockBadge.textContent = '🔆 Screen On';
+          wakelockBadge.className = 'wakelock-badge awake';
+          wakelockBadge.title = 'Screen wake lock active';
+        } else {
+          wakelockBadge.textContent = '⚠️ Auto-lock';
+          wakelockBadge.className = 'wakelock-badge warning';
+          wakelockBadge.title = 'Device Low Power Mode or OS policy may allow display to sleep';
+        }
+      } else {
+        wakelockBadge.style.display = 'none';
+      }
+    }
+
+    /**
      * Requests Screen WakeLock from the browser with resilience across
      * orientation changes, fullscreen transitions, and background visibility changes.
      */
     async function requestWakeLock() {
-      if (!('wakeLock' in navigator)) return;
-      if (wakeLock && !wakeLock.released) return;
+      if (!('wakeLock' in navigator)) {
+        updateWakeLockUI();
+        return;
+      }
+      if (wakeLock && !wakeLock.released) {
+        updateWakeLockUI();
+        return;
+      }
       if (wakeLockRequestInProgress) return;
 
       wakeLockRequestInProgress = true;
       try {
         wakeLock = await navigator.wakeLock.request('screen');
+        updateWakeLockUI();
         wakeLock.addEventListener('release', () => {
           wakeLock = null;
+          updateWakeLockUI();
           // Re-acquire if workout session is still active and page is visible
           if (shouldKeepAwake && document.visibilityState === 'visible') {
             setTimeout(requestWakeLock, 300);
           }
         });
       } catch (err) {
-        // Silently fails on low battery/power saver; watchdog will retry when possible
+        updateWakeLockUI();
       } finally {
         wakeLockRequestInProgress = false;
       }
@@ -1375,6 +1427,7 @@
         wakeLock.release().catch(() => {});
         wakeLock = null;
       }
+      updateWakeLockUI();
     }
 
     /**
@@ -1511,6 +1564,9 @@
           countdownNumber.textContent = count;
           if (soundMode === 'chimes') playWoodTick();
           else playVoiceClip(count.toString());
+          if (shouldKeepAwake && (!wakeLock || wakeLock.released) && document.visibilityState === 'visible') {
+            requestWakeLock();
+          }
         } else if (count === 0) {
           countdownNumber.textContent = "Start!";
           if (soundMode === 'chimes') playChime(784, 1.8);
