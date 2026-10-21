@@ -107,6 +107,10 @@
       color: var(--muted);
       letter-spacing: 0.2px;
       margin-top: 1px;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: baseline;
+      gap: 3px 6px;
     }
     .header-byline a {
       color: var(--accent);
@@ -118,6 +122,11 @@
     .header-byline a:focus {
       text-decoration: underline;
       opacity: 0.85;
+    }
+    .header-version {
+      font-size: 10px;
+      color: #929298;
+      white-space: nowrap;
     }
     .btn-fullscreen {
       position: absolute;
@@ -546,6 +555,12 @@
       font-size: 12px;
       color: var(--muted);
     }
+    .app-version-detail {
+      font-size: 10px;
+      color: #8e8e93;
+      margin-top: 3px;
+      letter-spacing: 0.2px;
+    }
 
     /* -------------------------------------------------------------------------
        LANDSCAPE / MAT-SIDE MODE
@@ -564,6 +579,9 @@
       }
       .header-byline {
         font-size: 10px;
+      }
+      .header-version {
+        font-size: 9px;
       }
       .header-logo {
         width: 24px;
@@ -649,7 +667,10 @@
       <img src="apple-touch-icon.png" alt="Logo" class="header-logo">
       <div class="header-titles">
         <h1>Surya Namaskar</h1>
-        <div class="header-byline">by <a href="https://github.com/diwakar2k" target="_blank" rel="noopener noreferrer">Diwakar Sharma</a></div>
+        <div class="header-byline">
+          <span>by <a href="https://github.com/diwakar2k" target="_blank" rel="noopener noreferrer">Diwakar Sharma</a></span>
+          <span class="header-version">• v14.0 (21-Oct-2026 08:45 IST)</span>
+        </div>
       </div>
     </div>
     <!-- Fullscreen Mode Toggle Button -->
@@ -694,6 +715,7 @@
     <div class="pace-indicator" id="pace-preview"></div>
     <div class="app-attribution">
       Created by <a href="https://github.com/diwakar2k" target="_blank" rel="noopener noreferrer">Diwakar Sharma</a>
+      <div class="app-version-detail">Version 14.0 • Released: 21-Oct-2026, 08:45 AM IST</div>
     </div>
   </div>
 
@@ -780,6 +802,7 @@
       <button class="modal-btn" onclick="closeSummaryModal()">Complete Practice</button>
       <div class="modal-footer-attribution">
         Created by <a href="https://github.com/diwakar2k" target="_blank" rel="noopener noreferrer">Diwakar Sharma</a>
+        <div class="app-version-detail">Version 14.0 • Released: 21-Oct-2026, 08:45 AM IST</div>
       </div>
     </div>
   </div>
