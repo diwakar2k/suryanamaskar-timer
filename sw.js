@@ -4,11 +4,11 @@
  * Provides full offline capabilities, pre-caches audio assets, icons, and pose diagrams,
  * and handles WebKit/iOS Safari standalone WebClip navigation edge-cases.
  *
- * @version 14.0.0
+ * @version 15.0.0
  */
 
 // Cache version identifier — bump this whenever assets or code are updated to trigger cache rotation.
-const CACHE_NAME = 'surya-namaskar-v14';
+const CACHE_NAME = 'surya-namaskar-v15';
 
 // Complete manifest of static assets to pre-cache on service worker installation.
 const ASSETS = [
@@ -125,25 +125,35 @@ function cleanResponse(response) {
 
 /**
  * Service Worker Fetch Event.
- * Implements a Cache-First strategy with network fallback for offline support.
+ * Uses Network-First for top-level HTML navigation so users immediately receive updates when online,
+ * with graceful offline fallback to cached index.html.
  */
 self.addEventListener('fetch', (e) => {
   if (e.request.method !== 'GET') return;
 
-  // Handle top-level HTML navigation (e.g. initial URL load, reload, or iOS WebClip launch)
+  // Handle top-level HTML navigation
   if (e.request.mode === 'navigate') {
     e.respondWith(
-      caches.match('./index.html').then((cached) => {
-        if (cached) {
-          return cached.text().then((html) => {
-            return new Response(html, {
-              status: 200,
-              headers: { 'Content-Type': 'text/html; charset=utf-8' }
-            });
+      fetch(e.request)
+        .then((res) => {
+          if (res && res.status === 200) {
+            const copy = res.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put('./index.html', copy));
+          }
+          return cleanResponse(res);
+        })
+        .catch(() => {
+          return caches.match('./index.html').then((cached) => {
+            if (cached) {
+              return cached.text().then((html) => {
+                return new Response(html, {
+                  status: 200,
+                  headers: { 'Content-Type': 'text/html; charset=utf-8' }
+                });
+              });
+            }
           });
-        }
-        return fetch(e.request).then(cleanResponse).catch(() => caches.match('./index.html'));
-      })
+        })
     );
     return;
   }

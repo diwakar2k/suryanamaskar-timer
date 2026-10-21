@@ -811,9 +811,20 @@
   <script>
     /**
      * Service Worker Registration for Offline PWA execution.
+     * Proactively checks for server updates and refreshes on new releases.
      */
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('sw.js');
+      navigator.serviceWorker.register('sw.js').then((reg) => {
+        reg.update().catch(() => {});
+      }).catch(() => {});
+
+      let isRefreshing = false;
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        if (!isRefreshing) {
+          isRefreshing = true;
+          window.location.reload();
+        }
+      });
     }
 
     // Set ambient audio session immediately on script load so iOS/Android mix with background audio (Spotify, etc.)
